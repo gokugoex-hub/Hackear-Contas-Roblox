@@ -1,0 +1,215 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-family: Arial, sans-serif;
+
+    background-image: url("wallpaper.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+
+    color: white;
+}
+
+
+/* =========================
+   SITE PRINCIPAL
+========================= */
+
+.container {
+    width: 90%;
+    max-width: 500px;
+
+    padding: 30px;
+
+    background: rgba(0, 0, 0, 0.7);
+
+    border-radius: 15px;
+
+    text-align: center;
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 10px;
+    margin-top: 20px;
+}
+
+input {
+    width: 100%;
+
+    padding: 14px;
+
+    border: none;
+    border-radius: 8px;
+
+    outline: none;
+
+    font-size: 16px;
+}
+
+button {
+    width: 100%;
+
+    margin-top: 25px;
+
+    padding: 14px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #000000;
+
+    font-size: 16px;
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+button:hover {
+    opacity: 0.8;
+    transform: scale(1.02);
+}
+
+
+/* =========================
+   PAINEL ADMIN
+========================= */
+
+.admin-container {
+    width: 90%;
+    max-width: 700px;
+
+    padding: 30px;
+
+    background: rgba(0, 0, 0, 0.8);
+
+    border-radius: 15px;
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.admin-container h1 {
+    text-align: center;
+
+    margin-bottom: 25px;
+
+    font-size: 28px;
+}
+
+
+/* =========================
+   MENU DO ADMIN
+========================= */
+
+.admin-menu {
+    display: flex;
+
+    gap: 10px;
+
+    margin-bottom: 25px;
+}
+
+.admin-menu button {
+    margin-top: 0;
+
+    flex: 1;
+}
+
+
+/* =========================
+   ABAS
+========================= */
+
+.aba {
+    width: 100%;
+}
+
+.aba h2 {
+    margin-bottom: 20px;
+
+    font-size: 22px;
+}
+
+.aba label {
+    display: block;
+
+    margin-top: 15px;
+    margin-bottom: 5px;
+
+    font-weight: bold;
+}
+
+.aba input {
+    margin-bottom: 5px;
+}
+
+
+/* =========================
+   CARTÃO DE RESPOSTA
+========================= */
+
+.resposta-card {
+    padding: 20px;
+
+    background: rgba(255, 255, 255, 0.1);
+
+    border-radius: 10px;
+
+    margin-top: 15px;
+
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.resposta-card p {
+    margin-bottom: 10px;
+}
+
+.resposta-card button {
+    margin-top: 5px;
+
+    margin-bottom: 20px;
+}
+
+
+/* =========================
+   RESPONSIVIDADE
+========================= */
+
+@media (max-width: 600px) {
+
+    .container {
+        padding: 20px;
+    }
+
+    .admin-container {
+        padding: 20px;
+    }
+
+    .admin-menu {
+        flex-direction: column;
+    }
+
+    .admin-menu button {
+        width: 100%;
+    }
+
+    .admin-container h1 {
+        font-size: 24px;
+    }
+}

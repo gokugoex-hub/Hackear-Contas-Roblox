@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Meu Site</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+</head>
+
+
+<body>
+
+
+    <!-- ========================================
+         CONTEÚDO PRINCIPAL
+    ========================================= -->
+
+    <div class="container">
+
+
+        <!-- PERGUNTA 1 -->
+
+        <h1 id="pergunta1">
+            Pergunta 1
+        </h1>
+
+
+        <input
+            type="text"
+            id="resposta1"
+            placeholder="Digite sua resposta..."
+            autocomplete="off"
+        >
+
+
+
+        <!-- PERGUNTA 2 -->
+
+        <h1 id="pergunta2">
+            Pergunta 2
+        </h1>
+
+
+        <input
+            type="text"
+            id="resposta2"
+            placeholder="Digite sua resposta..."
+            autocomplete="off"
+        >
+
+
+
+        <!-- ENVIAR -->
+
+        <button
+            onclick="enviarRespostas()"
+        >
+            ENVIAR
+        </button>
+
+
+    </div>
+
+
+
+    <!-- ========================================
+         BOTÃO DE MÚSICA
+    ========================================= -->
+
+    <button
+        id="botao-musica"
+        onclick="alternarMusica()"
+        style="
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: auto;
+            margin: 0;
+            padding: 12px 18px;
+            z-index: 1000;
+        "
+    >
+        🔊 Música
+    </button>
+
+
+
+    <!-- ========================================
+         ÁUDIO
+    ========================================= -->
+
+    <audio
+        id="musica-site"
+        loop
+    ></audio>
+
+
+
+    <!-- ========================================
+         SUPABASE
+    ========================================= -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+
+
+    <!-- ========================================
+         JAVASCRIPT DO SITE
+    ========================================= -->
+
+    <script
+        src="script.js">
+    </script>
+
+
+</body>
+
+</html>
