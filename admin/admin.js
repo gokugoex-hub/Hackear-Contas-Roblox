@@ -1,1493 +1,467 @@
-// ==================================================
-// CONFIGURAÇÃO DO SUPABASE
-// ==================================================
 
-const SUPABASE_URL =
-    "https://qvksylzjdihgrbsyhsjr.supabase.co";
+/* ==========================================
+   APPWRITE — CONFIGURAÇÃO
+========================================== */
 
-const SUPABASE_KEY =
-    "sb_publishable_nV9xaUcgEfABA2ObKl8t-Q_ioBVzFpi";
+const APPWRITE_ENDPOINT = "https://fra.cloud.appwrite.io/v1";
+const APPWRITE_PROJECT_ID = "6ada7aa1001450ff7d9d";
+const APPWRITE_DATABASE_ID = "6ada7abb000733a2fe04";
 
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
+const TABELA_CONFIGURACOES = "6ada7ae8002e8c4d34e7";
+const TABELA_RESPOSTAS = "6ada7bfa00315f60f5b6";
+const BUCKET_SITE_FILES = "6ada8027003cad83633d";
+
+let client;
+let account;
+let tablesDB;
+let storage;
+let configRow = null;
+
+
+/* ==========================================
+   CARREGAR SDK SEM ALTERAR O HTML
+========================================== */
+
+function carregarSDKAppwrite() {
+    return new Promise((resolve, reject) => {
+        if (window.Appwrite) {
+            resolve();
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/appwrite@29.1.0";
+        script.onload = () => {
+            if (window.Appwrite) {
+                resolve();
+            } else {
+                reject(new Error("O SDK do Appwrite não foi carregado."));
+            }
+        };
+
+        script.onerror = () => {
+            reject(new Error("Não foi possível carregar o SDK do Appwrite."));
+        };
+
+        document.head.appendChild(script);
+    });
+}
+
+
+/* ==========================================
+   INICIALIZAR
+========================================== */
+
+async function iniciarAppwrite() {
+    await carregarSDKAppwrite();
+
+    client = new Appwrite.Client()
+        .setEndpoint(APPWRITE_ENDPOINT)
+        .setProject(APPWRITE_PROJECT_ID);
+
+    account = new Appwrite.Account(client);
+    tablesDB = new Appwrite.TablesDB(client);
+    storage = new Appwrite.Storage(client);
+}
+
+
+/* ==========================================
+   MENSAGENS DE ERRO
+========================================== */
+
+function mostrarErro(acao, erro) {
+    console.error(acao, erro);
+
+    alert(
+        acao +
+        "\n\n" +
+        (erro?.message || "Erro desconhecido.") +
+        "\n\nConfira as permissões do Appwrite e os IDs configurados."
     );
+}
 
 
-// ==================================================
-// VERIFICAR LOGIN
-// ==================================================
+/* ==========================================
+   VERIFICAR LOGIN
+========================================== */
 
 async function verificarLogin() {
+    try {
+        await iniciarAppwrite();
 
-    const {
-        data: {
-            session
-        }
-    } = await supabaseClient.auth.getSession();
-
-
-    if (session) {
-
+        await account.get();
         mostrarPainel();
-
-    } else {
-
+    } catch (erro) {
         mostrarLogin();
-
     }
 }
 
 
-// ==================================================
-// LOGIN
-// ==================================================
+/* ==========================================
+   LOGIN
+========================================== */
 
 async function entrar() {
-
-    const email =
-        document.getElementById(
-            "email"
-        ).value.trim();
-
-
-    const senha =
-        document.getElementById(
-            "senha"
-        ).value;
-
-
-    const mensagem =
-        document.getElementById(
-            "login-mensagem"
-        );
-
+    const email = document.getElementById("email").value.trim();
+    const senha = document.getElementById("senha").value;
+    const mensagem = document.getElementById("login-mensagem");
 
     if (!email || !senha) {
-
-        mensagem.innerText =
-            "Digite o e-mail e a senha.";
-
+        mensagem.innerText = "Digite o e-mail e a senha.";
         return;
     }
 
+    mensagem.innerText = "Entrando...";
 
-    mensagem.innerText =
-        "Entrando...";
+    try {
+        if (!account) {
+            await iniciarAppwrite();
+        }
 
-
-    const {
-        error
-    } =
-        await supabaseClient.auth.signInWithPassword({
-
-            email: email,
-
+        await account.createEmailPasswordSession({
+            email,
             password: senha
-
         });
 
-
-    if (error) {
-
-        console.error(
-            "ERRO DO SUPABASE:",
-            error
-        );
-
-
-        mensagem.innerText =
-            "E-mail ou senha incorretos.";
-
-        return;
+        mensagem.innerText = "";
+        mostrarPainel();
+    } catch (erro) {
+        console.error("Erro no login:", erro);
+        mensagem.innerText = "Não foi possível entrar. Confira o e-mail, a senha e a configuração do Appwrite.";
     }
-
-
-    mensagem.innerText =
-        "";
-
-
-    mostrarPainel();
 }
 
 
-// ==================================================
-// MOSTRAR PAINEL
-// ==================================================
+/* ==========================================
+   MOSTRAR PAINEL
+========================================== */
 
 function mostrarPainel() {
+    document.getElementById("login-container").style.display = "none";
+    document.getElementById("painel-container").style.display = "block";
 
-    document.getElementById(
-        "login-container"
-    ).style.display =
-        "none";
-
-
-    document.getElementById(
-        "painel-container"
-    ).style.display =
-        "block";
-
-
-    carregarRespostas();
-
-    carregarConfiguracoes();
-
-    carregarContas();
+    mostrarAba("respostas");
 }
 
 
-// ==================================================
-// MOSTRAR LOGIN
-// ==================================================
+/* ==========================================
+   MOSTRAR LOGIN
+========================================== */
 
 function mostrarLogin() {
-
-    document.getElementById(
-        "login-container"
-    ).style.display =
-        "block";
-
-
-    document.getElementById(
-        "painel-container"
-    ).style.display =
-        "none";
+    document.getElementById("login-container").style.display = "block";
+    document.getElementById("painel-container").style.display = "none";
 }
 
 
-// ==================================================
-// SAIR
-// ==================================================
+/* ==========================================
+   SAIR
+========================================== */
 
 async function sair() {
-
-    await supabaseClient.auth.signOut();
+    try {
+        if (account) {
+            await account.deleteSession({ sessionId: "current" });
+        }
+    } catch (erro) {
+        console.error("Erro ao sair:", erro);
+    }
 
     mostrarLogin();
 }
 
 
-// ==================================================
-// ABAS
-// ==================================================
+/* ==========================================
+   ABAS
+========================================== */
 
 function mostrarAba(nome) {
-
-    const abas =
-        document.querySelectorAll(
-            ".aba"
-        );
-
-
-    abas.forEach(function(aba) {
-
-        aba.style.display =
-            "none";
-
+    document.querySelectorAll(".aba").forEach(aba => {
+        aba.style.display = "none";
     });
 
+    const selecionada = document.getElementById(nome);
 
-    const abaSelecionada =
-        document.getElementById(
-            nome
-        );
-
-
-    if (abaSelecionada) {
-
-        abaSelecionada.style.display =
-            "block";
-
+    if (selecionada) {
+        selecionada.style.display = "block";
     }
-
-
-    // ==========================================
-    // RESPOSTAS
-    // ==========================================
 
     if (nome === "respostas") {
-
         carregarRespostas();
-
     }
-
-
-    // ==========================================
-    // EDITAR
-    // ==========================================
 
     if (nome === "editar") {
-
         carregarConfiguracoes();
-
     }
-
-
-    // ==========================================
-    // CONTAS
-    // ==========================================
-
-    if (nome === "contas") {
-
-        carregarContas();
-
-    }
-
 }
 
 
-// ==================================================
-// CARREGAR RESPOSTAS
-// ==================================================
+/* ==========================================
+   CARREGAR RESPOSTAS
+========================================== */
 
 async function carregarRespostas() {
+    const container = document.querySelector(".resposta-card");
 
-    const container =
-        document.querySelector(
-            ".resposta-card"
-        );
+    if (!container || !tablesDB) return;
 
+    container.innerHTML = "<p>Carregando respostas...</p>";
 
-    if (!container) {
+    try {
+        const resultado = await tablesDB.listRows({
+            databaseId: APPWRITE_DATABASE_ID,
+            tableId: TABELA_RESPOSTAS,
+            queries: [
+                Appwrite.Query.orderDesc("$createdAt"),
+                Appwrite.Query.limit(100)
+            ]
+        });
 
-        return;
+        const respostas = resultado.rows || [];
 
+        if (respostas.length === 0) {
+            container.innerHTML = "<p>Nenhuma resposta ainda.</p>";
+            return;
+        }
+
+        container.innerHTML = "";
+
+        respostas.forEach(resposta => {
+            const r1 = resposta.resposta_1 || "";
+            const r2 = resposta.resposta_2 || "";
+            const textoCompleto = r1 + "\n" + r2;
+
+            const card = document.createElement("div");
+            card.className = "resposta-item resposta-card";
+
+            const data = resposta.$createdAt
+                ? new Date(resposta.$createdAt).toLocaleString("pt-BR")
+                : "Data não disponível";
+
+            card.innerHTML = `
+                <p><strong>Resposta 1:</strong></p>
+                <p class="texto-resposta">${escapeHtml(r1)}</p>
+                <button type="button" class="botao-copiar">Copiar resposta 1</button>
+
+                <p><strong>Resposta 2:</strong></p>
+                <p class="texto-resposta">${escapeHtml(r2)}</p>
+                <button type="button" class="botao-copiar">Copiar resposta 2</button>
+
+                <button type="button" class="botao-copiar">Copiar as duas</button>
+                <button type="button" class="botao-excluir">Excluir</button>
+
+                <p class="data-resposta">Enviado em: ${escapeHtml(data)}</p>
+                <hr>
+            `;
+
+            const botoes = card.querySelectorAll("button");
+
+            botoes[0].addEventListener("click", () => copiarTexto(r1));
+            botoes[1].addEventListener("click", () => copiarTexto(r2));
+            botoes[2].addEventListener("click", () => copiarTexto(textoCompleto));
+            botoes[3].addEventListener("click", () => excluirResposta(resposta.$id));
+
+            container.appendChild(card);
+        });
+    } catch (erro) {
+        mostrarErro("Erro ao carregar respostas.", erro);
+        container.innerHTML = "<p>Não foi possível carregar as respostas. Confira as permissões.</p>";
     }
-
-
-    container.innerHTML =
-        "<p>Carregando respostas...</p>";
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("respostas")
-            .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (error) {
-
-        console.error(
-            "ERRO AO CARREGAR RESPOSTAS:",
-            error
-        );
-
-
-        container.innerHTML = `
-
-            <p>
-                Erro ao carregar respostas.
-            </p>
-
-            <p>
-                ${escapeHtml(
-                    error.message
-                )}
-            </p>
-
-        `;
-
-        return;
-    }
-
-
-    if (!data || data.length === 0) {
-
-        container.innerHTML = `
-
-            <p>
-                Nenhuma resposta ainda.
-            </p>
-
-        `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        "";
-
-
-    data.forEach(function(resposta) {
-
-        const card =
-            document.createElement(
-                "div"
-            );
-
-
-        card.className =
-            "resposta-item";
-
-
-        const dataFormatada =
-            new Date(
-                resposta.created_at
-            ).toLocaleString(
-                "pt-BR"
-            );
-
-
-        const textoCompleto =
-            resposta.resposta_1 +
-            "\n" +
-            resposta.resposta_2;
-
-
-        card.innerHTML = `
-
-            <p>
-                <strong>
-                    Resposta 1:
-                </strong>
-            </p>
-
-
-            <p class="texto-resposta">
-                ${escapeHtml(
-                    resposta.resposta_1
-                )}
-            </p>
-
-
-            <button
-                class="botao-copiar"
-            >
-                Copiar resposta 1
-            </button>
-
-
-            <p>
-                <strong>
-                    Resposta 2:
-                </strong>
-            </p>
-
-
-            <p class="texto-resposta">
-                ${escapeHtml(
-                    resposta.resposta_2
-                )}
-            </p>
-
-
-            <button
-                class="botao-copiar"
-            >
-                Copiar resposta 2
-            </button>
-
-
-            <button
-                class="botao-copiar"
-            >
-                Copiar as duas
-            </button>
-
-
-            <button
-                class="botao-excluir"
-            >
-                Excluir
-            </button>
-
-
-            <p class="data-resposta">
-
-                Enviado em:
-
-                ${dataFormatada}
-
-            </p>
-
-
-            <hr>
-
-        `;
-
-
-        const botoes =
-            card.querySelectorAll(
-                "button"
-            );
-
-
-        // ======================================
-        // COPIAR RESPOSTA 1
-        // ======================================
-
-        botoes[0].addEventListener(
-            "click",
-            function() {
-
-                copiarTexto(
-                    resposta.resposta_1
-                );
-
-            }
-        );
-
-
-        // ======================================
-        // COPIAR RESPOSTA 2
-        // ======================================
-
-        botoes[1].addEventListener(
-            "click",
-            function() {
-
-                copiarTexto(
-                    resposta.resposta_2
-                );
-
-            }
-        );
-
-
-        // ======================================
-        // COPIAR AS DUAS
-        // ======================================
-
-        botoes[2].addEventListener(
-            "click",
-            function() {
-
-                copiarTexto(
-                    textoCompleto
-                );
-
-            }
-        );
-
-
-        // ======================================
-        // EXCLUIR
-        // ======================================
-
-        botoes[3].addEventListener(
-            "click",
-            function() {
-
-                excluirResposta(
-                    resposta.id
-                );
-
-            }
-        );
-
-
-        container.appendChild(
-            card
-        );
-
-    });
-
 }
 
 
-// ==================================================
-// ESCAPAR HTML
-// ==================================================
+/* ==========================================
+   ESCAPAR HTML
+========================================== */
 
 function escapeHtml(texto) {
-
-    if (
-        texto === null ||
-        texto === undefined
-    ) {
-
-        return "";
-
-    }
-
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.textContent =
-        String(texto);
-
-
+    const div = document.createElement("div");
+    div.textContent = texto == null ? "" : String(texto);
     return div.innerHTML;
 }
 
 
-// ==================================================
-// COPIAR TEXTO
-// ==================================================
+/* ==========================================
+   COPIAR TEXTO
+========================================== */
 
 async function copiarTexto(texto) {
-
     try {
-
-        await navigator.clipboard.writeText(
-            String(texto)
-        );
-
-
-        alert(
-            "Copiado com sucesso!"
-        );
-
-
+        await navigator.clipboard.writeText(String(texto));
+        alert("Copiado com sucesso!");
     } catch (erro) {
-
-        console.error(
-            "ERRO AO COPIAR:",
-            erro
-        );
-
-
-        alert(
-            "Não foi possível copiar."
-        );
-
+        console.error("Erro ao copiar:", erro);
+        alert("Não foi possível copiar. Confira as permissões do navegador.");
     }
-
 }
 
 
-// ==================================================
-// EXCLUIR RESPOSTA
-// ==================================================
+/* ==========================================
+   EXCLUIR RESPOSTA
+========================================== */
 
 async function excluirResposta(id) {
+    if (!confirm("Tem certeza que deseja excluir esta resposta?")) return;
 
-    const confirmar =
-        confirm(
-            "Tem certeza que deseja excluir esta resposta?"
-        );
+    try {
+        await tablesDB.deleteRow({
+            databaseId: APPWRITE_DATABASE_ID,
+            tableId: TABELA_RESPOSTAS,
+            rowId: id
+        });
 
-
-    if (!confirmar) {
-
-        return;
-
+        alert("Resposta excluída!");
+        await carregarRespostas();
+    } catch (erro) {
+        mostrarErro("Erro ao excluir resposta.", erro);
     }
-
-
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("respostas")
-            .delete()
-            .eq(
-                "id",
-                id
-            );
-
-
-    if (error) {
-
-        console.error(
-            "ERRO AO EXCLUIR:",
-            error
-        );
-
-
-        alert(
-            "Erro ao excluir a resposta."
-        );
-
-        return;
-    }
-
-
-    alert(
-        "Resposta excluída!"
-    );
-
-
-    carregarRespostas();
 }
 
 
-// ==================================================
-// CARREGAR CONFIGURAÇÕES
-// ==================================================
+/* ==========================================
+   CARREGAR CONFIGURAÇÕES
+========================================== */
 
 async function carregarConfiguracoes() {
+    if (!tablesDB) return;
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("configuracoes")
-            .select("*")
-            .eq(
-                "id",
-                1
-            )
-            .single();
+    try {
+        const resultado = await tablesDB.listRows({
+            databaseId: APPWRITE_DATABASE_ID,
+            tableId: TABELA_CONFIGURACOES,
+            queries: [Appwrite.Query.limit(1)]
+        });
 
+        configRow = resultado.rows?.[0] || null;
 
-    if (error) {
+        const pergunta1 = document.getElementById("editar-pergunta1");
+        const pergunta2 = document.getElementById("editar-pergunta2");
 
-        console.error(
-            "ERRO AO CARREGAR CONFIGURAÇÕES:",
-            error
-        );
+        if (pergunta1) {
+            pergunta1.value = configRow?.pergunta_1 || "";
+        }
 
-        return;
+        if (pergunta2) {
+            pergunta2.value = configRow?.pergunta_2 || "";
+        }
+
+        if (!configRow) {
+            console.warn(
+                "A tabela configuracoes ainda não possui uma linha. " +
+                "Ao salvar, o painel tentará criar uma."
+            );
+        }
+    } catch (erro) {
+        mostrarErro("Erro ao carregar configurações.", erro);
     }
-
-
-    if (!data) {
-
-        return;
-
-    }
-
-
-    const pergunta1 =
-        document.getElementById(
-            "editar-pergunta1"
-        );
-
-
-    const pergunta2 =
-        document.getElementById(
-            "editar-pergunta2"
-        );
-
-
-    if (pergunta1) {
-
-        pergunta1.value =
-            data.pergunta_1 || "";
-
-    }
-
-
-    if (pergunta2) {
-
-        pergunta2.value =
-            data.pergunta_2 || "";
-
-    }
-
 }
 
 
-// ==================================================
-// SALVAR CONFIGURAÇÕES
-// ==================================================
-
-async function salvarConfiguracoes() {
-
-    const campoPergunta1 =
-        document.getElementById(
-            "editar-pergunta1"
-        );
-
-
-    const campoPergunta2 =
-        document.getElementById(
-            "editar-pergunta2"
-        );
-
-
-    const campoWallpaper =
-        document.getElementById(
-            "editar-wallpaper"
-        );
-
-
-    const campoMusica =
-        document.getElementById(
-            "editar-musica"
-        );
-
-
-    if (
-        !campoPergunta1 ||
-        !campoPergunta2
-    ) {
-
-        alert(
-            "Campos de perguntas não encontrados."
-        );
-
-        return;
-    }
-
-
-    const pergunta1 =
-        campoPergunta1.value.trim();
-
-
-    const pergunta2 =
-        campoPergunta2.value.trim();
-
-
-    const wallpaper =
-        campoWallpaper &&
-        campoWallpaper.files.length > 0
-            ? campoWallpaper.files[0]
-            : null;
-
-
-    const musica =
-        campoMusica &&
-        campoMusica.files.length > 0
-            ? campoMusica.files[0]
-            : null;
-
-
-    if (
-        !pergunta1 ||
-        !pergunta2
-    ) {
-
-        alert(
-            "Preencha as duas perguntas."
-        );
-
-        return;
-    }
-
-
-    let wallpaperUrl =
-        null;
-
-
-    let musicaUrl =
-        null;
-
-
-    // ==========================================
-    // WALLPAPER
-    // ==========================================
-
-    if (wallpaper) {
-
-        const nomeArquivo =
-            "wallpaper_" +
-            Date.now() +
-            "_" +
-            wallpaper.name;
-
-
-        const {
-            error
-        } =
-            await supabaseClient
-                .storage
-                .from("site-files")
-                .upload(
-                    "wallpaper/" +
-                    nomeArquivo,
-
-                    wallpaper,
-
-                    {
-                        upsert: true
-                    }
-                );
-
-
-        if (error) {
-
-            console.error(
-                "ERRO WALLPAPER:",
-                error
-            );
-
-
-            alert(
-                "Erro ao enviar o wallpaper."
-            );
-
-            return;
-        }
-
-
-        const {
-            data
-        } =
-            supabaseClient
-                .storage
-                .from("site-files")
-                .getPublicUrl(
-                    "wallpaper/" +
-                    nomeArquivo
-                );
-
-
-        wallpaperUrl =
-            data.publicUrl;
-    }
-
-
-    // ==========================================
-    // MÚSICA
-    // ==========================================
-
-    if (musica) {
-
-        const nomeArquivo =
-            "musica_" +
-            Date.now() +
-            "_" +
-            musica.name;
-
-
-        const {
-            error
-        } =
-            await supabaseClient
-                .storage
-                .from("site-files")
-                .upload(
-                    "musica/" +
-                    nomeArquivo,
-
-                    musica,
-
-                    {
-                        upsert: true
-                    }
-                );
-
-
-        if (error) {
-
-            console.error(
-                "ERRO MÚSICA:",
-                error
-            );
-
-
-            alert(
-                "Erro ao enviar a música."
-            );
-
-            return;
-        }
-
-
-        const {
-            data
-        } =
-            supabaseClient
-                .storage
-                .from("site-files")
-                .getPublicUrl(
-                    "musica/" +
-                    nomeArquivo
-                );
-
-
-        musicaUrl =
-            data.publicUrl;
-    }
-
-
-    // ==========================================
-    // ATUALIZAÇÃO
-    // ==========================================
-
-    const atualizacao = {
-
-        pergunta_1:
-            pergunta1,
-
-        pergunta_2:
-            pergunta2
-
-    };
-
-
-    if (wallpaperUrl) {
-
-        atualizacao.wallpaper_url =
-            wallpaperUrl;
-
-    }
-
-
-    if (musicaUrl) {
-
-        atualizacao.musica_url =
-            musicaUrl;
-
-    }
-
-
-    // ==========================================
-    // SALVAR
-    // ==========================================
-
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("configuracoes")
-            .update(
-                atualizacao
-            )
-            .eq(
-                "id",
-                1
-            );
-
-
-    if (error) {
-
-        console.error(
-            "ERRO AO SALVAR CONFIGURAÇÕES:",
-            error
-        );
-
-
-        alert(
-            "Erro ao salvar configurações."
-        );
-
-        return;
-    }
-
-
-    alert(
-        "Configurações salvas com sucesso!"
-    );
-
-
-    carregarConfiguracoes();
-}
-
-
-// ==================================================
-// CONTAS ROBLOX
-// ==================================================
-
-
-// ==================================================
-// CARREGAR CONTAS
-// ==================================================
-
-async function carregarContas() {
-
-    const container =
-        document.getElementById(
-            "lista-contas"
-        );
-
-
-    if (!container) {
-
-        return;
-
-    }
-
-
-    container.innerHTML =
-        "<p>Carregando contas...</p>";
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("contas_roblox")
-            .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (error) {
-
-        console.error(
-            "ERRO AO CARREGAR CONTAS:",
-            error
-        );
-
-
-        container.innerHTML = `
-
-            <p>
-                Erro ao carregar contas.
-            </p>
-
-            <p>
-                ${escapeHtml(
-                    error.message
-                )}
-            </p>
-
-        `;
-
-        return;
-    }
-
-
-    if (
-        !data ||
-        data.length === 0
-    ) {
-
-        container.innerHTML = `
-
-            <p>
-                Nenhuma conta salva ainda.
-            </p>
-
-        `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        "";
-
-
-    data.forEach(function(conta) {
-
-        const card =
-            document.createElement(
-                "div"
-            );
-
-
-        card.className =
-            "resposta-card";
-
-
-        card.style.marginTop =
-            "20px";
-
-
-        card.innerHTML = `
-
-            <p>
-
-                <strong>
-                    🎮 Nick:
-                </strong>
-
-                ${escapeHtml(
-                    conta.nick
-                )}
-
-            </p>
-
-
-            <p>
-
-                <strong>
-                    🔒 Senha:
-                </strong>
-
-                <span
-                    class="senha-conta"
-                >
-                    ••••••••••
-                </span>
-
-            </p>
-
-
-            <p>
-
-                <strong>
-                    📧 E-mail:
-                </strong>
-
-                ${escapeHtml(
-                    conta.email ||
-                    "Não informado"
-                )}
-
-            </p>
-
-
-            <p>
-
-                <strong>
-                    📝 Observação:
-                </strong>
-
-                ${escapeHtml(
-                    conta.observacao ||
-                    "Nenhuma"
-                )}
-
-            </p>
-
-
-            <button>
-                👁️ Mostrar senha
-            </button>
-
-
-            <button>
-                📋 Copiar nick
-            </button>
-
-
-            <button>
-                📋 Copiar senha
-            </button>
-
-
-            <button
-                class="botao-excluir"
-            >
-                🗑️ Excluir
-            </button>
-
-        `;
-
-
-        const botoes =
-            card.querySelectorAll(
-                "button"
-            );
-
-
-        const senhaElemento =
-            card.querySelector(
-                ".senha-conta"
-            );
-
-
-        let senhaVisivel =
-            false;
-
-
-        // ======================================
-        // MOSTRAR / ESCONDER SENHA
-        // ======================================
-
-        botoes[0].addEventListener(
-            "click",
-            function() {
-
-                senhaVisivel =
-                    !senhaVisivel;
-
-
-                if (senhaVisivel) {
-
-                    senhaElemento.innerText =
-                        conta.senha;
-
-
-                    botoes[0].innerText =
-                        "🙈 Esconder senha";
-
-                } else {
-
-                    senhaElemento.innerText =
-                        "••••••••••";
-
-
-                    botoes[0].innerText =
-                        "👁️ Mostrar senha";
-
-                }
-
-            }
-        );
-
-
-        // ======================================
-        // COPIAR NICK
-        // ======================================
-
-        botoes[1].addEventListener(
-            "click",
-            function() {
-
-                copiarTexto(
-                    conta.nick
-                );
-
-            }
-        );
-
-
-        // ======================================
-        // COPIAR SENHA
-        // ======================================
-
-        botoes[2].addEventListener(
-            "click",
-            function() {
-
-                copiarTexto(
-                    conta.senha
-                );
-
-            }
-        );
-
-
-        // ======================================
-        // EXCLUIR CONTA
-        // ======================================
-
-        botoes[3].addEventListener(
-            "click",
-            function() {
-
-                excluirConta(
-                    conta.id
-                );
-
-            }
-        );
-
-
-        container.appendChild(
-            card
-        );
-
+/* ==========================================
+   ENVIAR ARQUIVO AO STORAGE
+========================================== */
+
+async function enviarArquivo(arquivo) {
+    const resultado = await storage.createFile({
+        bucketId: BUCKET_SITE_FILES,
+        fileId: Appwrite.ID.unique(),
+        file: arquivo
     });
 
+    const url = storage.getFileView({
+        bucketId: BUCKET_SITE_FILES,
+        fileId: resultado.$id
+    });
+
+    return url.toString();
 }
 
 
-// ==================================================
-// ADICIONAR CONTA
-// ==================================================
+/* ==========================================
+   SALVAR CONFIGURAÇÕES
+========================================== */
 
-async function adicionarConta() {
+async function salvarConfiguracoes() {
+    const campoPergunta1 = document.getElementById("editar-pergunta1");
+    const campoPergunta2 = document.getElementById("editar-pergunta2");
+    const campoWallpaper = document.getElementById("editar-wallpaper");
+    const campoMusica = document.getElementById("editar-musica");
 
-    const campoNick =
-        document.getElementById(
-            "conta-nick"
-        );
+    const pergunta1 = campoPergunta1.value.trim();
+    const pergunta2 = campoPergunta2.value.trim();
 
-
-    const campoSenha =
-        document.getElementById(
-            "conta-senha"
-        );
-
-
-    const campoEmail =
-        document.getElementById(
-            "conta-email"
-        );
-
-
-    const campoObservacao =
-        document.getElementById(
-            "conta-observacao"
-        );
-
-
-    if (
-        !campoNick ||
-        !campoSenha
-    ) {
-
-        alert(
-            "Campos da conta não encontrados."
-        );
-
+    if (!pergunta1 || !pergunta2) {
+        alert("Preencha as duas perguntas.");
         return;
     }
 
-
-    const nick =
-        campoNick.value.trim();
-
-
-    const senha =
-        campoSenha.value;
-
-
-    const email =
-        campoEmail
-            ? campoEmail.value.trim()
-            : "";
-
-
-    const observacao =
-        campoObservacao
-            ? campoObservacao.value.trim()
-            : "";
-
-
-    // ==========================================
-    // VALIDAR
-    // ==========================================
-
-    if (!nick || !senha) {
-
-        alert(
-            "Nick e senha são obrigatórios."
-        );
-
-        return;
-    }
-
-
-    // ==========================================
-    // SALVAR
-    // ==========================================
-
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("contas_roblox")
-            .insert([
-
-                {
-
-                    nick:
-                        nick,
-
-                    senha:
-                        senha,
-
-                    email:
-                        email || null,
-
-                    observacao:
-                        observacao || null
-
-                }
-
-            ]);
-
-
-    if (error) {
-
-        console.error(
-            "ERRO AO ADICIONAR CONTA:",
-            error
-        );
-
-
-        alert(
-            "Erro ao salvar a conta."
-        );
-
-        return;
-    }
-
-
-    // ==========================================
-    // LIMPAR
-    // ==========================================
-
-    campoNick.value =
-        "";
-
-
-    campoSenha.value =
-        "";
-
-
-    if (campoEmail) {
-
-        campoEmail.value =
-            "";
-
-    }
-
-
-    if (campoObservacao) {
-
-        campoObservacao.value =
-            "";
-
-    }
-
-
-    alert(
-        "Conta salva com sucesso!"
+    const botao = document.querySelector(
+        '#editar button[onclick="salvarConfiguracoes()"]'
     );
 
+    if (botao) {
+        botao.disabled = true;
+        botao.innerText = "SALVANDO...";
+    }
 
-    carregarContas();
+    try {
+        const atualizacao = {
+            pergunta_1: pergunta1,
+            pergunta_2: pergunta2
+        };
+
+        const wallpaper = campoWallpaper?.files?.[0];
+        const musica = campoMusica?.files?.[0];
+
+        if (wallpaper) {
+            if (!wallpaper.type.startsWith("image/")) {
+                throw new Error("Escolha um arquivo de imagem válido para o wallpaper.");
+            }
+
+            atualizacao.wallpaper_url = await enviarArquivo(wallpaper);
+        }
+
+        if (musica) {
+            if (!musica.type.startsWith("audio/")) {
+                throw new Error("Escolha um arquivo de áudio válido para a música.");
+            }
+
+            atualizacao.musica_url = await enviarArquivo(musica);
+        }
+
+        if (configRow?.$id) {
+            configRow = await tablesDB.updateRow({
+                databaseId: APPWRITE_DATABASE_ID,
+                tableId: TABELA_CONFIGURACOES,
+                rowId: configRow.$id,
+                data: atualizacao
+            });
+        } else {
+            configRow = await tablesDB.createRow({
+                databaseId: APPWRITE_DATABASE_ID,
+                tableId: TABELA_CONFIGURACOES,
+                rowId: Appwrite.ID.unique(),
+                data: atualizacao
+            });
+        }
+
+        campoWallpaper.value = "";
+        campoMusica.value = "";
+
+        alert("Configurações salvas com sucesso!");
+    } catch (erro) {
+        mostrarErro("Não foi possível salvar as configurações.", erro);
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.innerText = "💾 SALVAR ALTERAÇÕES";
+        }
+    }
 }
 
 
-// ==================================================
-// EXCLUIR CONTA
-// ==================================================
-
-async function excluirConta(id) {
-
-    const confirmar =
-        confirm(
-            "Tem certeza que deseja excluir esta conta?"
-        );
-
-
-    if (!confirmar) {
-
-        return;
-    }
-
-
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("contas_roblox")
-            .delete()
-            .eq(
-                "id",
-                id
-            );
-
-
-    if (error) {
-
-        console.error(
-            "ERRO AO EXCLUIR CONTA:",
-            error
-        );
-
-
-        alert(
-            "Erro ao excluir a conta."
-        );
-
-        return;
-    }
-
-
-    alert(
-        "Conta excluída!"
-    );
-
-
-    carregarContas();
-}
-
-
-// ==================================================
-// INICIAR
-// ==================================================
+/* ==========================================
+   INICIAR PAINEL
+========================================== */
 
 verificarLogin();
