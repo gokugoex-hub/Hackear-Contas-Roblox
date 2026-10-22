@@ -11,6 +11,9 @@ const TABELA_CONFIGURACOES = "6ada7ae8002e8c4d34e7";
 const TABELA_RESPOSTAS = "6ada7bfa00315f60f5b6";
 const BUCKET_SITE_FILES = "6ada8027003cad83633d";
 
+// ID da linha que já existe no Appwrite
+const CONFIG_ROW_ID = "6ada7b1100281f7be88d";
+
 let client;
 let account;
 let tablesDB;
@@ -19,7 +22,7 @@ let configRow = null;
 
 
 /* ==========================================
-   CARREGAR SDK SEM ALTERAR O HTML
+   CARREGAR SDK APPWRITE
 ========================================== */
 
 function carregarSDKAppwrite() {
@@ -31,6 +34,7 @@ function carregarSDKAppwrite() {
 
         const script = document.createElement("script");
         script.src = "https://cdn.jsdelivr.net/npm/appwrite@29.1.0";
+
         script.onload = () => {
             if (window.Appwrite) {
                 resolve();
@@ -49,10 +53,12 @@ function carregarSDKAppwrite() {
 
 
 /* ==========================================
-   INICIALIZAR
+   INICIALIZAR APPWRITE
 ========================================== */
 
 async function iniciarAppwrite() {
+    if (tablesDB && account && storage) return;
+
     await carregarSDKAppwrite();
 
     client = new Appwrite.Client()
@@ -88,7 +94,6 @@ function mostrarErro(acao, erro) {
 async function verificarLogin() {
     try {
         await iniciarAppwrite();
-
         await account.get();
         mostrarPainel();
     } catch (erro) {
@@ -114,9 +119,7 @@ async function entrar() {
     mensagem.innerText = "Entrando...";
 
     try {
-        if (!account) {
-            await iniciarAppwrite();
-        }
+        await iniciarAppwrite();
 
         await account.createEmailPasswordSession({
             email,
@@ -127,7 +130,8 @@ async function entrar() {
         mostrarPainel();
     } catch (erro) {
         console.error("Erro no login:", erro);
-        mensagem.innerText = "Não foi possível entrar. Confira o e-mail, a senha e a configuração do Appwrite.";
+        mensagem.innerText =
+            "Não foi possível entrar. Confira o e-mail, a senha e a configuração do Appwrite.";
     }
 }
 
@@ -232,7 +236,7 @@ async function carregarRespostas() {
             const textoCompleto = r1 + "\n" + r2;
 
             const card = document.createElement("div");
-            card.className = "resposta-item resposta-card";
+            card.className = "resposta-item";
 
             const data = resposta.$createdAt
                 ? new Date(resposta.$createdAt).toLocaleString("pt-BR")
@@ -265,7 +269,8 @@ async function carregarRespostas() {
         });
     } catch (erro) {
         mostrarErro("Erro ao carregar respostas.", erro);
-        container.innerHTML = "<p>Não foi possível carregar as respostas. Confira as permissões.</p>";
+        container.innerHTML =
+            "<p>Não foi possível carregar as respostas. Confira as permissões.</p>";
     }
 }
 
@@ -329,29 +334,35 @@ async function carregarConfiguracoes() {
         const resultado = await tablesDB.listRows({
             databaseId: APPWRITE_DATABASE_ID,
             tableId: TABELA_CONFIGURACOES,
-            queries: [Appwrite.Query.limit(1)]
+            queries: [
+                Appwrite.Query.equal("$id", [CONFIG_ROW_ID]),
+                Appwrite.Query.limit(1)
+            ]
         });
 
-        configRow = resultado.rows?.[0] || null;
+        configRow = resultado.rows?.find(
+            row => row.$id === CONFIG_ROW_ID
+        ) || null;
+
+        if (!configRow) {
+            throw new Error(
+                "A linha de configuração não foi encontrada. " +
+                "Confirma o ID e as permissões de leitura."
+            );
+        }
 
         const pergunta1 = document.getElementById("editar-pergunta1");
         const pergunta2 = document.getElementById("editar-pergunta2");
 
         if (pergunta1) {
-            pergunta1.value = configRow?.pergunta_1 || "";
+            pergunta1.value = configRow.pergunta_1 || "";
         }
 
         if (pergunta2) {
-            pergunta2.value = configRow?.pergunta_2 || "";
-        }
-
-        if (!configRow) {
-            console.warn(
-                "A tabela configuracoes ainda não possui uma linha. " +
-                "Ao salvar, o painel tentará criar uma."
-            );
+            pergunta2.value = configRow.pergunta_2 || "";
         }
     } catch (erro) {
+        configRow = null;
         mostrarErro("Erro ao carregar configurações.", erro);
     }
 }
@@ -405,6 +416,19 @@ async function salvarConfiguracoes() {
     }
 
     try {
+        // Recarrega a linha existente se ainda não estiver carregada.
+        if (!configRow?.$id) {
+            await carregarConfiguracoes();
+        }
+
+        // Não tenta criar uma linha nova automaticamente.
+        if (!configRow?.$id) {
+            throw new Error(
+                "Não foi possível identificar a linha existente. " +
+                "Nenhuma configuração foi salva."
+            );
+        }
+
         const atualizacao = {
             pergunta_1: pergunta1,
             pergunta_2: pergunta2
@@ -415,7 +439,9 @@ async function salvarConfiguracoes() {
 
         if (wallpaper) {
             if (!wallpaper.type.startsWith("image/")) {
-                throw new Error("Escolha um arquivo de imagem válido para o wallpaper.");
+                throw new Error(
+                    "Escolha um arquivo de imagem válido para o wallpaper."
+                );
             }
 
             atualizacao.wallpaper_url = await enviarArquivo(wallpaper);
@@ -423,27 +449,20 @@ async function salvarConfiguracoes() {
 
         if (musica) {
             if (!musica.type.startsWith("audio/")) {
-                throw new Error("Escolha um arquivo de áudio válido para a música.");
+                throw new Error(
+                    "Escolha um arquivo de áudio válido para a música."
+                );
             }
 
             atualizacao.musica_url = await enviarArquivo(musica);
         }
 
-        if (configRow?.$id) {
-            configRow = await tablesDB.updateRow({
-                databaseId: APPWRITE_DATABASE_ID,
-                tableId: TABELA_CONFIGURACOES,
-                rowId: configRow.$id,
-                data: atualizacao
-            });
-        } else {
-            configRow = await tablesDB.createRow({
-                databaseId: APPWRITE_DATABASE_ID,
-                tableId: TABELA_CONFIGURACOES,
-                rowId: Appwrite.ID.unique(),
-                data: atualizacao
-            });
-        }
+        configRow = await tablesDB.updateRow({
+            databaseId: APPWRITE_DATABASE_ID,
+            tableId: TABELA_CONFIGURACOES,
+            rowId: CONFIG_ROW_ID,
+            data: atualizacao
+        });
 
         campoWallpaper.value = "";
         campoMusica.value = "";
