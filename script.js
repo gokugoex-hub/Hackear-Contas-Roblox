@@ -1,19 +1,39 @@
+
+/* ==================================================
+   CONFIGURAÇÃO DO APPWRITE
+================================================== */
+
+// IMPORTANTE:
+// Substitua pelo endpoint real exibido nas configurações
+// do seu projeto Appwrite.
+
+const APPWRITE_ENDPOINT =
+    "https://fra.cloud.appwrite.io/v1";
+
+const APPWRITE_PROJECT_ID =
+    "6ada7aa1001450ff7d9d";
+
+const DATABASE_ID =
+    "6ada7abb000733a2fe04";
+
+const TABLE_CONFIGURACOES =
+    "6ada7ae8002e8c4d34e7";
+
+const TABLE_RESPOSTAS =
+    "6ada7bfa00315f60f5b6";
+
+
 // ==================================================
-// CONFIGURAÇÃO DO SUPABASE
+// CONECTAR AO APPWRITE
 // ==================================================
 
-const SUPABASE_URL =
-    "https://qvksylzjdihgrbsyhsjr.supabase.co";
+const client =
+    new Appwrite.Client()
+        .setEndpoint(APPWRITE_ENDPOINT)
+        .setProject(APPWRITE_PROJECT_ID);
 
-const SUPABASE_KEY =
-    "sb_publishable_nV9xaUcgEfABA2ObKl8t-Q_ioBVzFpi";
-
-
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
+const tablesDB =
+    new Appwrite.TablesDB(client);
 
 
 // ==================================================
@@ -31,120 +51,126 @@ async function carregarConfiguracoes() {
 
     console.log("Carregando configurações...");
 
+    try {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("configuracoes")
-            .select("*")
-            .eq("id", 1)
-            .single();
+        // ==============================================
+        // BUSCAR CONFIGURAÇÕES NO APPWRITE
+        // ==============================================
+
+        const resultado =
+            await tablesDB.listRows({
+                databaseId: DATABASE_ID,
+                tableId: TABLE_CONFIGURACOES
+            });
 
 
-    // ==============================================
-    // ERRO
-    // ==============================================
+        // ==============================================
+        // VERIFICAR SE EXISTEM CONFIGURAÇÕES
+        // ==============================================
 
-    if (error) {
+        if (
+            !resultado.rows ||
+            resultado.rows.length === 0
+        ) {
+
+            console.warn(
+                "Nenhuma configuração encontrada."
+            );
+
+            return;
+        }
+
+
+        // Utiliza o primeiro registro encontrado.
+        const data = resultado.rows[0];
+
+
+        console.log(
+            "Configurações carregadas:",
+            data
+        );
+
+
+        // ==================================================
+        // PERGUNTA 1
+        // ==================================================
+
+        const pergunta1 =
+            document.getElementById(
+                "pergunta1"
+            );
+
+
+        if (pergunta1) {
+
+            pergunta1.innerText =
+                data.pergunta_1 ||
+                "Pergunta 1";
+
+        }
+
+
+        // ==================================================
+        // PERGUNTA 2
+        // ==================================================
+
+        const pergunta2 =
+            document.getElementById(
+                "pergunta2"
+            );
+
+
+        if (pergunta2) {
+
+            pergunta2.innerText =
+                data.pergunta_2 ||
+                "Pergunta 2";
+
+        }
+
+
+        // ==================================================
+        // WALLPAPER
+        // ==================================================
+
+        if (data.wallpaper_url) {
+
+            aplicarWallpaper(
+                data.wallpaper_url
+            );
+
+        } else {
+
+            console.log(
+                "Nenhum wallpaper configurado."
+            );
+
+        }
+
+
+        // ==================================================
+        // MÚSICA
+        // ==================================================
+
+        if (data.musica_url) {
+
+            criarMusica(
+                data.musica_url
+            );
+
+        } else {
+
+            console.log(
+                "Nenhuma música configurada."
+            );
+
+        }
+
+    } catch (erro) {
 
         console.error(
             "Erro ao carregar configurações:",
-            error
-        );
-
-        return;
-    }
-
-
-    if (!data) {
-
-        console.warn(
-            "Nenhuma configuração encontrada."
-        );
-
-        return;
-    }
-
-
-    console.log(
-        "Configurações carregadas:",
-        data
-    );
-
-
-    // ==================================================
-    // PERGUNTA 1
-    // ==================================================
-
-    const pergunta1 =
-        document.getElementById(
-            "pergunta1"
-        );
-
-
-    if (pergunta1) {
-
-        pergunta1.innerText =
-            data.pergunta_1 ||
-            "Pergunta 1";
-
-    }
-
-
-    // ==================================================
-    // PERGUNTA 2
-    // ==================================================
-
-    const pergunta2 =
-        document.getElementById(
-            "pergunta2"
-        );
-
-
-    if (pergunta2) {
-
-        pergunta2.innerText =
-            data.pergunta_2 ||
-            "Pergunta 2";
-
-    }
-
-
-    // ==================================================
-    // WALLPAPER
-    // ==================================================
-
-    if (data.wallpaper_url) {
-
-        aplicarWallpaper(
-            data.wallpaper_url
-        );
-
-    } else {
-
-        console.log(
-            "Nenhum wallpaper configurado."
-        );
-
-    }
-
-
-    // ==================================================
-    // MÚSICA
-    // ==================================================
-
-    if (data.musica_url) {
-
-        criarMusica(
-            data.musica_url
-        );
-
-    } else {
-
-        console.log(
-            "Nenhuma música configurada."
+            erro
         );
 
     }
@@ -171,8 +197,7 @@ function aplicarWallpaper(url) {
 
 
     // ==============================================
-    // Adiciona um parâmetro para evitar
-    // problemas de cache quando trocar a imagem.
+    // ADICIONAR PARÂMETRO PARA EVITAR CACHE
     // ==============================================
 
     const separador =
@@ -189,7 +214,7 @@ function aplicarWallpaper(url) {
 
 
     // ==============================================
-    // BACKGROUND
+    // CONFIGURAR FUNDO
     // ==============================================
 
     document.body.style.backgroundImage =
@@ -292,7 +317,7 @@ function criarMusica(url) {
 
 
     // ==============================================
-    // TENTAR AUTOPLAY
+    // TENTAR REPRODUÇÃO AUTOMÁTICA
     // ==============================================
 
     musica.play()
@@ -501,8 +526,7 @@ async function enviarRespostas() {
             "ENVIAR"
         ) {
 
-            botaoEnviar =
-                botao;
+            botaoEnviar = botao;
 
         }
 
@@ -515,9 +539,7 @@ async function enviarRespostas() {
 
     if (botaoEnviar) {
 
-        botaoEnviar.disabled =
-            true;
-
+        botaoEnviar.disabled = true;
 
         botaoEnviar.innerText =
             "ENVIANDO...";
@@ -525,96 +547,80 @@ async function enviarRespostas() {
     }
 
 
-    // ==============================================
-    // ENVIAR PARA SUPABASE
-    // ==============================================
+    try {
 
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("respostas")
-            .insert([
+        // ==============================================
+        // ENVIAR PARA O APPWRITE
+        // ==============================================
 
-                {
+        await tablesDB.createRow({
 
-                    resposta_1:
-                        resposta1,
+            databaseId: DATABASE_ID,
 
-                    resposta_2:
-                        resposta2
+            tableId: TABLE_RESPOSTAS,
 
-                }
+            rowId: Appwrite.ID.unique(),
 
-            ]);
+            data: {
+
+                resposta_1: resposta1,
+
+                resposta_2: resposta2
+
+            }
+
+        });
 
 
-    // ==============================================
-    // TRATAR ERRO
-    // ==============================================
+        // ==============================================
+        // SUCESSO
+        // ==============================================
 
-    if (error) {
+        alert(
+            "Respostas enviadas com sucesso! ✅"
+        );
+
+
+        // ==============================================
+        // LIMPAR CAMPOS
+        // ==============================================
+
+        campoResposta1.value = "";
+
+        campoResposta2.value = "";
+
+
+    } catch (erro) {
+
+        // ==============================================
+        // TRATAR ERRO
+        // ==============================================
 
         console.error(
             "Erro ao enviar respostas:",
-            error
+            erro
         );
 
 
         alert(
-            "Erro ao enviar as respostas."
+            "Erro ao enviar as respostas. " +
+            "Verifique a conexão e as permissões do Appwrite."
         );
 
+    } finally {
+
+        // ==============================================
+        // RESTAURAR BOTÃO
+        // ==============================================
 
         if (botaoEnviar) {
 
-            botaoEnviar.disabled =
-                false;
-
+            botaoEnviar.disabled = false;
 
             botaoEnviar.innerText =
                 "ENVIAR";
 
         }
-
-
-        return;
-    }
-
-
-    // ==============================================
-    // SUCESSO
-    // ==============================================
-
-    alert(
-        "Respostas enviadas com sucesso! ✅"
-    );
-
-
-    // ==============================================
-    // LIMPAR CAMPOS
-    // ==============================================
-
-    campoResposta1.value =
-        "";
-
-
-    campoResposta2.value =
-        "";
-
-
-    // ==============================================
-    // RESTAURAR BOTÃO
-    // ==============================================
-
-    if (botaoEnviar) {
-
-        botaoEnviar.disabled =
-            false;
-
-
-        botaoEnviar.innerText =
-            "ENVIAR";
 
     }
 
@@ -630,7 +636,7 @@ document.addEventListener(
     function() {
 
         console.log(
-            "Site iniciado."
+            "Site iniciado com Appwrite."
         );
 
 
